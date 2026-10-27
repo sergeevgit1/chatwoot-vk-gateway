@@ -22,6 +22,19 @@ services:
     networks:
       - default
       - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-web.rule=Host(`vk.youcompany.ru`)
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-web.entrypoints=web
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-web.service=companyos-vk-gateway-hnfabo-22-web
+      - traefik.http.services.companyos-vk-gateway-hnfabo-22-web.loadbalancer.server.port=3000
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-websecure.rule=Host(`vk.youcompany.ru`)
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-websecure.entrypoints=websecure
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-websecure.service=companyos-vk-gateway-hnfabo-22-web
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-websecure.tls=true
+      - traefik.http.routers.companyos-vk-gateway-hnfabo-22-websecure.tls.certresolver=letsencrypt
 
     healthcheck:
       test:
