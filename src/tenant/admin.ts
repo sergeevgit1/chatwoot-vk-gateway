@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import formbody from '@fastify/formbody';
+
 import type { Config } from '../config.js';
 import type { Logger } from '../logger.js';
 import { createAdminSession, getCookieValue, isValidAdminSession, sessionCookie } from './auth.js';
@@ -41,7 +41,13 @@ export interface AdminDeps {
 }
 
 export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void {
-  app.register(formbody);
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_request, body, done) => {
+      done(null, Object.fromEntries(new URLSearchParams(body as string)));
+    },
+  );
   app.addHook('onRequest', async (request, reply) => {
     if (!request.url.startsWith('/admin') || request.url === '/admin/login') return;
     if (
