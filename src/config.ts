@@ -29,6 +29,7 @@ const baseSchema = z.object({
   ENCRYPTION_KEY: z.string().min(32).default('development-only-encryption-key-change-me'),
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(12).default('development-admin-password'),
+  ADMIN_SESSION_SECRET: z.string().min(32).default('development-only-session-secret-change-me'),
   REDIS_URL: optionalRedisUrl,
 });
 
@@ -64,6 +65,16 @@ const runtimeSchema = baseSchema.superRefine((cfg, ctx) => {
       message: 'ENCRYPTION_KEY must be changed',
     });
   }
+  if (
+    cfg.NODE_ENV !== 'test' &&
+    cfg.ADMIN_SESSION_SECRET === 'development-only-session-secret-change-me'
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ADMIN_SESSION_SECRET'],
+      message: 'ADMIN_SESSION_SECRET must be changed',
+    });
+  }
 });
 
 export interface Config {
@@ -77,6 +88,7 @@ export interface Config {
   encryptionKey: string;
   adminUsername: string;
   adminPassword: string;
+  adminSessionSecret: string;
   redisUrl?: string;
   multiGroup: boolean;
   // Legacy singleton fields are retained for compatibility with the original testable core.
@@ -121,6 +133,7 @@ function common(
     encryptionKey: c.ENCRYPTION_KEY,
     adminUsername: c.ADMIN_USERNAME,
     adminPassword: c.ADMIN_PASSWORD,
+    adminSessionSecret: c.ADMIN_SESSION_SECRET,
     redisUrl: c.REDIS_URL,
   };
 }
@@ -139,6 +152,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     return {
       ...common(multi),
       multiGroup: true,
+      adminSessionSecret: multi.ADMIN_SESSION_SECRET,
       vkMode: 'callback',
       vkToken: '',
       vkGroupId: undefined,
@@ -157,6 +171,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     ...common(legacy),
     multiGroup: false,
+    adminSessionSecret: legacy.ADMIN_SESSION_SECRET,
     vkMode: legacy.VK_MODE,
     vkToken: legacy.VK_TOKEN,
     vkGroupId: legacy.VK_GROUP_ID,
