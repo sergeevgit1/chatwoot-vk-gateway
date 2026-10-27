@@ -18,12 +18,7 @@ services:
         condition: service_healthy
     expose:
       - '3000'
-    labels:
-      traefik.enable: 'true'
-      traefik.http.routers.vk-gateway.rule: Host(`vk.youcompany.ru`)
-      traefik.http.routers.vk-gateway.entrypoints: websecure
-      traefik.http.routers.vk-gateway.tls.certresolver: letsencrypt
-      traefik.http.services.vk-gateway.loadbalancer.server.port: '3000'
+
     healthcheck:
       test:
         [
