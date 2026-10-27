@@ -20,6 +20,7 @@ export interface MultiGroupDeps {
 function tenantConfig(base: Config, tenant: Tenant): Config {
   return {
     ...base,
+    multiGroup: true,
     vkMode: tenant.vkMode,
     vkToken: tenant.vkToken,
     vkGroupId: tenant.vkGroupId,

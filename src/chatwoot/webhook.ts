@@ -62,6 +62,8 @@ export function extractPeerId(payload: ChatwootWebhookPayload): number | undefin
     payload.conversation?.meta?.sender?.identifier ??
     undefined;
   if (!sourceId) return undefined;
-  const peerId = Number.parseInt(String(sourceId), 10);
+  const source = String(sourceId);
+  const scopedPeer = source.startsWith('vk:') ? source.split(':').at(-1) : source;
+  const peerId = Number.parseInt(scopedPeer ?? '', 10);
   return Number.isFinite(peerId) ? peerId : undefined;
 }

@@ -30,15 +30,28 @@ export async function processVkUpdate(deps: InboundDeps, update: VkUpdate): Prom
   const message = update.object.message;
   if (!message) return;
 
-  const dedupKey = `vk:${update.event_id ?? `${message.peer_id}:${message.id}`}`;
+  const groupScope =
+    deps.config.multiGroup && deps.config.vkGroupId ? `${deps.config.vkGroupId}:` : '';
+  const dedupKey = `vk:${groupScope}${update.event_id ?? `${message.peer_id}:${message.id}`}`;
   if (await deps.dedup.seen(dedupKey)) {
     deps.logger.debug({ dedupKey }, 'duplicate VK update ignored');
     return;
   }
 
   const incoming = normalizeVkMessage(message);
-  const contactId = await resolveContactId(deps.chatwoot, deps.vk, incoming.vkUserId, deps.logger);
-  const conversationId = await resolveConversationId(deps.chatwoot, contactId, incoming.vkUserId);
+  const contactId = await resolveContactId(
+    deps.chatwoot,
+    deps.vk,
+    incoming.vkUserId,
+    deps.logger,
+    deps.config,
+  );
+  const conversationId = await resolveConversationId(
+    deps.chatwoot,
+    contactId,
+    incoming.vkUserId,
+    deps.config,
+  );
 
   const files: DownloadedFile[] = [];
   const textParts: string[] = incoming.text ? [incoming.text] : [];
