@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import formbody from '@fastify/formbody';
 import type { Config } from '../config.js';
 import type { Logger } from '../logger.js';
 import { createAdminSession, getCookieValue, isValidAdminSession, sessionCookie } from './auth.js';
@@ -14,13 +14,6 @@ const unauthorized = (reply: {
 }): void => {
   reply.code(401).type('text/plain').send('Unauthorized');
 };
-
-function sameSecret(actual: string | undefined, expected: string): boolean {
-  if (!actual) return false;
-  const a = Buffer.from(actual);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 function safeTenant(tenant: Tenant): Record<string, unknown> {
   return {
@@ -48,6 +41,7 @@ export interface AdminDeps {
 }
 
 export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void {
+  app.register(formbody);
   app.addHook('onRequest', async (request, reply) => {
     if (!request.url.startsWith('/admin') || request.url === '/admin/login') return;
     if (
@@ -58,33 +52,11 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       )
     )
       return;
-    const header = request.headers.authorization ?? '';
-    const [scheme, encoded] = header.split(' ');
-    if (scheme !== 'Basic' || !encoded) return unauthorized(reply);
-    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
-    const separator = decoded.indexOf(':');
-    const username = separator >= 0 ? decoded.slice(0, separator) : '';
-    const password = separator >= 0 ? decoded.slice(separator + 1) : '';
-    if (
-      !sameSecret(username, deps.config.adminUsername) ||
-      !sameSecret(password, deps.config.adminPassword)
-    ) {
-      reply.header('WWW-Authenticate', 'Basic realm="VK Gateway Admin"');
-      if (request.url === '/admin' || request.url === '/admin/') {
-        reply.code(302).header('location', '/admin/login').send();
-        return;
-      }
-      return unauthorized(reply);
+    if (request.url === '/admin' || request.url === '/admin/') {
+      reply.code(302).header('location', '/admin/login').send();
+      return;
     }
-    const token = createAdminSession(
-      deps.config.adminUsername,
-      deps.config.adminSessionSecret,
-      SESSION_TTL_MS,
-    );
-    reply.header(
-      'set-cookie',
-      `${sessionCookie}=${token}; Path=/admin; Max-Age=${SESSION_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Strict`,
-    );
+    return unauthorized(reply);
   });
 
   app.get('/admin/login', async (_request, reply) => reply.type('text/html').send(renderLogin()));
@@ -93,8 +65,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     '/admin/login',
     async (request, reply) => {
       if (
-        !sameSecret(request.body?.username, deps.config.adminUsername) ||
-        !sameSecret(request.body?.password, deps.config.adminPassword)
+        request.body?.username !== deps.config.adminUsername ||
+        request.body?.password !== deps.config.adminPassword
       ) {
         return reply.code(401).type('text/html').send(renderLogin('Неверный логин или пароль'));
       }

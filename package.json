@@ -23,6 +23,7 @@
     "setup:inbox": "tsx scripts/setup-chatwoot-inbox.ts"
   },
   "dependencies": {
+    "@fastify/formbody": "^8.0.2",
     "dotenv": "^18.0.8",
     "fastify": "^5.12.7",
     "pg": "^8.23.1",
