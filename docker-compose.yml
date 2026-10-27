@@ -19,6 +19,9 @@ services:
         condition: service_healthy
     expose:
       - '3000'
+    networks:
+      - default
+      - dokploy-network
 
     healthcheck:
       test:
@@ -52,3 +55,7 @@ services:
 
 volumes:
   gateway-postgres:
+
+networks:
+  dokploy-network:
+    external: true
