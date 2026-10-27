@@ -1,3 +1,4 @@
+import type { Tenant } from '../tenant/store.js';
 import type { Config } from '../config.js';
 import type { Logger } from '../logger.js';
 import type { DownloadedFile } from '../types.js';
@@ -17,6 +18,28 @@ export class ChatwootClient {
     private readonly logger: Logger,
   ) {
     this.base = `${config.chatwootUrl}/api/v1/accounts/${config.chatwootAccountId}`;
+  }
+
+  static forTenant(tenant: Tenant, logger: Logger): ChatwootClient {
+    return new ChatwootClient(
+      {
+        nodeEnv: 'production',
+        port: 3000,
+        shutdownTimeoutMs: 30_000,
+        publicUrl: tenant.chatwootUrl,
+        logLevel: 'info',
+        maxAttachmentBytes: 50 * 1024 * 1024,
+        databaseUrl: '',
+        encryptionKey: '',
+        adminUsername: '',
+        adminPassword: '',
+        chatwootUrl: tenant.chatwootUrl,
+        chatwootAccountId: tenant.chatwootAccountId,
+        chatwootToken: tenant.chatwootToken,
+        chatwootInboxId: tenant.chatwootInboxId,
+      } as Config,
+      logger,
+    );
   }
 
   private async request<T>(path: string, init: RequestInit = {}, expectJson = true): Promise<T> {

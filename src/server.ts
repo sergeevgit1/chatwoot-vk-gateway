@@ -17,6 +17,12 @@ export interface ServerDeps {
   logger: Logger;
   onChatwootWebhook: (payload: ChatwootWebhookPayload) => Promise<void>;
   onVkCallback?: (body: VkCallbackBody) => Promise<{ status: number; body: string }>;
+  verifyChatwootWebhook?: (
+    rawBody: Buffer,
+    timestamp: string | undefined,
+    signature: string | undefined,
+    payload: ChatwootWebhookPayload,
+  ) => Promise<boolean>;
 }
 
 /** Build the Fastify app with `/health`, `/vk/callback` and `/chatwoot/webhook`. */
@@ -63,33 +69,45 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     });
   }
 
-  app.post('/chatwoot/webhook', async (req, reply) => {
-    const secret = deps.config.chatwootWebhookSecret;
-    if (secret) {
-      const ok = verifySignature(
-        req.rawBody ?? '',
-        headerString(req.headers['x-chatwoot-timestamp']),
-        headerString(req.headers['x-chatwoot-signature']),
-        secret,
-      );
-      if (!ok) {
-        deps.logger.warn(
-          {
-            hasTimestamp: Boolean(headerString(req.headers['x-chatwoot-timestamp'])),
-            hasSignature: Boolean(headerString(req.headers['x-chatwoot-signature'])),
-          },
-          'Chatwoot webhook rejected: invalid signature',
+  if (deps.onChatwootWebhook)
+    app.post('/chatwoot/webhook', async (req, reply) => {
+      const secret = deps.config.chatwootWebhookSecret;
+      if (deps.verifyChatwootWebhook) {
+        const ok = await deps.verifyChatwootWebhook(
+          req.rawBody ?? Buffer.alloc(0),
+          headerString(req.headers['x-chatwoot-timestamp']),
+          headerString(req.headers['x-chatwoot-signature']),
+          req.body as ChatwootWebhookPayload,
         );
-        await reply.code(401).send({ error: 'invalid signature' });
-        return;
+        if (!ok) {
+          await reply.code(401).send({ error: 'invalid signature or unknown inbox' });
+          return;
+        }
+      } else if (secret) {
+        const ok = verifySignature(
+          req.rawBody ?? '',
+          headerString(req.headers['x-chatwoot-timestamp']),
+          headerString(req.headers['x-chatwoot-signature']),
+          secret,
+        );
+        if (!ok) {
+          deps.logger.warn(
+            {
+              hasTimestamp: Boolean(headerString(req.headers['x-chatwoot-timestamp'])),
+              hasSignature: Boolean(headerString(req.headers['x-chatwoot-signature'])),
+            },
+            'Chatwoot webhook rejected: invalid signature',
+          );
+          await reply.code(401).send({ error: 'invalid signature' });
+          return;
+        }
       }
-    }
-    // Register the delivery before ACK so shutdown cannot miss accepted work.
-    void deps
-      .onChatwootWebhook(req.body as ChatwootWebhookPayload)
-      .catch(() => deps.logger.error('chatwoot webhook processing failed'));
-    await reply.code(200).send({ status: 'ok' });
-  });
+      // Register the delivery before ACK so shutdown cannot miss accepted work.
+      void deps.onChatwootWebhook!(req.body as ChatwootWebhookPayload).catch(() =>
+        deps.logger.error('chatwoot webhook processing failed'),
+      );
+      await reply.code(200).send({ status: 'ok' });
+    });
 
   return app;
 }
