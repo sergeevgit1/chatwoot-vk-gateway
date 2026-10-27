@@ -1,0 +1,30 @@
+services:
+  gateway:
+    build: .
+    image: chatwoot-vk-gateway
+    container_name: chatwoot-vk-gateway
+    restart: unless-stopped
+    stop_grace_period: 40s
+    env_file: .env
+    ports:
+      - '${PORT:-3000}:3000'
+    healthcheck:
+      # BusyBox wget, not `node -e`: a Node cold start costs ~0.45 CPU-s per probe and
+      # accounted for 99.5% of this container's CPU on production (WEB-528).
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # Uncomment to enable the Redis-backed dedup cache (set REDIS_URL=redis://redis:6379 in .env):
+    # depends_on:
+    #   - redis
+
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redis-data:/data
+
+# volumes:
+#   redis-data:
